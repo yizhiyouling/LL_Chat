@@ -1,11 +1,12 @@
 #include "AddFriendDialog.h"
-
 #include <QPushButton>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
+#include <QJsonArray>
 
 AddFriendDialog::AddFriendDialog(const QString &currentUser,
                                  WebSocketClient *client,
@@ -14,26 +15,41 @@ AddFriendDialog::AddFriendDialog(const QString &currentUser,
     m_currentUser(currentUser),
     m_client(client)
 {
-    setWindowTitle("添加好友");
-    resize(300, 120);
+    setWindowTitle("好友管理");
+    resize(400, 200);
 
+    // 左：添加好友
     QLabel *lbl = new QLabel("好友用户名:", this);
     m_friendEdit = new QLineEdit(this);
-    m_addBtn    = new QPushButton("添加", this);
-    m_cancelBtn = new QPushButton("取消", this);
-
-    auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->addWidget(lbl);
-    mainLayout->addWidget(m_friendEdit);
-    auto *btnLayout = new QHBoxLayout;
-    btnLayout->addWidget(m_addBtn);
-    btnLayout->addWidget(m_cancelBtn);
-    mainLayout->addLayout(btnLayout);
-
+    m_addBtn     = new QPushButton("添加", this);
     connect(m_addBtn, &QPushButton::clicked, this, &AddFriendDialog::onAddClicked);
-    connect(m_cancelBtn, &QPushButton::clicked, this, &AddFriendDialog::onCancelClicked);
+
+    auto *leftLay = new QVBoxLayout;
+    leftLay->addWidget(lbl);
+    leftLay->addWidget(m_friendEdit);
+    leftLay->addWidget(m_addBtn);
+
+    // 右：请求列表
+    QLabel *lblReq = new QLabel("好友申请:", this);
+    m_requestList = new QListWidget(this);
+    m_acceptBtn   = new QPushButton("同意", this);
+    connect(m_acceptBtn, &QPushButton::clicked, this, &AddFriendDialog::onAcceptClicked);
+
+    auto *rightLay = new QVBoxLayout;
+    rightLay->addWidget(lblReq);
+    rightLay->addWidget(m_requestList);
+    rightLay->addWidget(m_acceptBtn);
+
+    auto *mainLayout = new QHBoxLayout(this);
+    mainLayout->addLayout(leftLay, 1);
+    mainLayout->addLayout(rightLay, 1);
+
+    // 接收服务端推送
     connect(m_client, &WebSocketClient::messageReceived,
             this, &AddFriendDialog::onServerMessage);
+
+    // 首次拉取申请列表
+    onRefreshRequests();
 }
 
 AddFriendDialog::~AddFriendDialog() = default;
@@ -45,29 +61,64 @@ void AddFriendDialog::onAddClicked()
         QMessageBox::warning(this, "提示", "请输入好友用户名！");
         return;
     }
-    QJsonObject req;
-    req["type"] = "add_friend";
-    req["from"] = m_currentUser;
-    req["to"]   = to;
+    QJsonObject req{
+        {"type", "add_friend"},
+        {"from", m_currentUser},
+        {"to",   to}
+    };
     m_client->sendJson(req);
 }
 
-void AddFriendDialog::onCancelClicked()
+void AddFriendDialog::onRefreshRequests()
 {
-    reject();
+    QJsonObject req{
+        {"type",     "get_requests"},
+        {"username", m_currentUser}
+    };
+    m_client->sendJson(req);
+}
+
+void AddFriendDialog::onAcceptClicked()
+{
+    auto *item = m_requestList->currentItem();
+    if (!item) {
+        QMessageBox::warning(this, "提示", "请选择一条申请！");
+        return;
+    }
+    QString from = item->text();
+    QJsonObject req{
+        {"type", "accept_friend"},
+        {"user", m_currentUser},
+        {"from", from}
+    };
+    m_client->sendJson(req);
 }
 
 void AddFriendDialog::onServerMessage(const QJsonObject &obj)
 {
-    if (obj.value("type").toString() != "add_friend_result")
-        return;
-
-    bool ok = obj.value("success").toBool();
-    const QString reason = obj.value("reason").toString("未知错误");
-    if (ok) {
-        QMessageBox::information(this, "添加成功", "好友已添加");
-        accept();
-    } else {
-        QMessageBox::warning(this, "添加失败", reason);
+    QString type = obj.value("type").toString();
+    if (type == "add_friend_result") {
+        bool ok = obj.value("success").toBool();
+        const QString reason = obj.value("reason").toString();
+        QMessageBox::information(this, ok ? "添加发送成功" : "添加发送失败", ok ? "申请已发送" : reason);
+    }
+    else if (type == "requests_list") {
+        m_requestList->clear();
+        for (auto v : obj.value("list").toArray())
+            m_requestList->addItem(v.toString());
+    }
+    else if (type == "friend_request") {
+        // 有新申请时刷新列表
+        onRefreshRequests();
+    }
+    else if (type == "accept_friend_result") {
+        bool ok = obj.value("success").toBool();
+        const QString reason = obj.value("reason").toString();
+        if (ok) {
+            QMessageBox::information(this, "添加成功", "已成为好友");
+            accept();  // 关闭对话框
+        } else {
+            QMessageBox::warning(this, "添加失败", reason);
+        }
     }
 }

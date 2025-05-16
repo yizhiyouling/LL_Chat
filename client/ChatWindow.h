@@ -3,6 +3,9 @@
 
 #include <QWidget>
 #include "WebSocketClient.h"
+#include <QMap>
+#include <QListWidgetItem>
+#include <QStringList>
 
 class QListWidget;
 class QLineEdit;
@@ -18,6 +21,7 @@ private slots:
     void onSendClicked();
     void onAddFriendClicked();
     void onServerMessage(const QJsonObject &obj);
+    void onContactSelected(QListWidgetItem *item);  // 新增
 
 private:
     QString m_username;
@@ -25,9 +29,13 @@ private:
 
     QListWidget *m_contactList;
     QListWidget *m_chatView;
-    QLineEdit *m_messageEdit;
+    QLineEdit   *m_messageEdit;
     QPushButton *m_sendBtn;
     QPushButton *m_addFriendBtn;
+
+    // —— 新增：按联系人存储聊天历史 ——
+    QMap<QString, QStringList> m_history;
+    void showHistoryFor(const QString &contact);   // 新增
 };
 
 #endif // CHATWINDOW_H
