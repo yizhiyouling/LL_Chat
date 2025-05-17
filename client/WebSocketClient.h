@@ -7,33 +7,27 @@
 #include <QUrl>
 #include <QAbstractSocket>
 
+// WebSocket 客户端类，负责与服务器建立连接并收发消息
 class WebSocketClient : public QObject {
     Q_OBJECT
 public:
     explicit WebSocketClient(QObject *parent = nullptr);
-
-    // 连接到服务器
-    void connectToServer(const QUrl &url);
-    // 获取当前连接 URL（用于重试）
-    QUrl serverUrl() const { return m_url; }
-    // 发送 JSON 对象
-    void sendJson(const QJsonObject &obj);
+    void connectToServer(const QUrl &url);  // 连接到指定服务器 URL
+    QUrl serverUrl() const { return m_url; }     // 获取当前连接的服务器 URL（用于重试连接等场景）
+    void sendJson(const QJsonObject &obj);  // 发送 JSON 格式数据给服务器
 
 signals:
-    // 收到服务器消息时发出
-    void messageReceived(const QJsonObject &obj);
-    // WebSocket 已连接
-    void connected();
-    // WebSocket 发生错误
-    void errorOccurred(QAbstractSocket::SocketError error);
+    void messageReceived(const QJsonObject &obj);    // 收到服务器消息时发出，传递解析后的 JSON 对象
+    void connected();   // WebSocket 连接成功信号
+    void errorOccurred(QAbstractSocket::SocketError error); // 发生网络错误时发出，传递错误类型
 
 private slots:
-    void onConnected();
-    void onTextMessageReceived(const QString &message);
+    void onConnected(); // WebSocket 连接成功回调
+    void onTextMessageReceived(const QString &message); // 接收到文本消息回调
 
 private:
-    QWebSocket m_webSocket;
-    QUrl       m_url;
+    QWebSocket m_webSocket; // WebSocket 实例
+    QUrl       m_url;       // 服务器 URL
 };
 
-#endif // W
+#endif
