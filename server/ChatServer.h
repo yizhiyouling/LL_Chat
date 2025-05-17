@@ -10,6 +10,7 @@ class ChatServer : public QObject {
     Q_OBJECT
 public:
     explicit ChatServer(quint16 port, QObject *parent = nullptr);
+    ~ChatServer();
     bool listen();
 
 private slots:

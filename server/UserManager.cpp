@@ -5,8 +5,8 @@ bool UserManager::registerUser(const QString &user, const QString &pass)
     QMutexLocker lk(&mutex_);
     if (passwords_.contains(user)) return false;
     passwords_[user] = pass;
-    contacts_[user] = {};
-    friendRequests_[user] = {};
+    contacts_[user] = QStringList();;
+    friendRequests_[user] = QStringList();;
     return true;
 }
 

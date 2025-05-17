@@ -12,6 +12,9 @@ ChatServer::ChatServer(quint16 port, QObject *parent)
             this, &ChatServer::onNewConnection);
 }
 
+ChatServer::~ChatServer() {
+}
+
 bool ChatServer::listen()
 {
     return server_->isListening();
